@@ -27,6 +27,14 @@ impl<'a> StlFile<'a> {
         }
     }
 
+    pub fn parse_ascii(buffer: &'a [u8]) -> Result<Self, ()> {
+        Ok(AsciiParser::new(buffer)?.parse())
+    }
+
+    pub fn parse_binary(buffer: &'a [u8]) -> Result<Self, ()> {
+        Ok(BinaryParser::new(buffer)?.parse())
+    }
+
     pub fn vertex_buffer(&'a self) -> &'a [f32] {
         &self.vertices
     }
@@ -60,6 +68,61 @@ impl<'a> StlFile<'a> {
     pub fn triangles(&self) -> impl Iterator<Item = Triangle> {
         // todo
         Vec::new().into_iter()
+    }
+
+    pub fn bounding_box(&self) -> BoundingBox {
+        let mut bb = BoundingBox::init();
+
+        for vertex in self.vertices() {
+            bb.min.x = bb.min.x.min(vertex.x);
+            bb.min.y = bb.min.y.min(vertex.y);
+            bb.min.z = bb.min.z.min(vertex.z);
+
+            bb.max.x = bb.max.x.max(vertex.x);
+            bb.max.y = bb.max.y.max(vertex.y);
+            bb.max.z = bb.max.z.max(vertex.z);
+        }
+
+        bb
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BoundingBox {
+    min: Vertex,
+    max: Vertex,
+}
+
+impl BoundingBox {
+    fn init() -> Self {
+        Self {
+            min: Vertex {
+                x: f32::INFINITY,
+                y: f32::INFINITY,
+                z: f32::INFINITY,
+            },
+            max: Vertex {
+                x: f32::NEG_INFINITY,
+                y: f32::NEG_INFINITY,
+                z: f32::NEG_INFINITY,
+            },
+        }
+    }
+
+    pub fn center(&self) -> Vertex {
+        Vertex {
+            x: (self.min.x + self.max.x) / 2.0,
+            y: (self.min.y + self.max.y) / 2.0,
+            z: (self.min.z + self.max.z) / 2.0,
+        }
+    }
+
+    pub fn delta(&self) -> Vertex {
+        Vertex {
+            x: self.max.x - self.min.x,
+            y: self.max.y - self.min.y,
+            z: self.max.z - self.min.z,
+        }
     }
 }
 
