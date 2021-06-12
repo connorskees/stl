@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::{Normal, StlFile};
 
 #[derive(Debug)]
@@ -64,20 +62,28 @@ impl<'a> BinaryParser<'a> {
 
     fn read_u32_le(&mut self) -> u32 {
         self.cursor += 4;
-        u32::from_le_bytes(
-            self.buffer[(self.cursor - 4)..self.cursor]
-                .try_into()
-                .unwrap(),
-        )
+
+        assert!(self.cursor <= self.buffer.len());
+
+        u32::from_le_bytes([
+            self.buffer[self.cursor - 4],
+            self.buffer[self.cursor - 3],
+            self.buffer[self.cursor - 2],
+            self.buffer[self.cursor - 1],
+        ])
     }
 
     fn read_f32_le(&mut self) -> f32 {
         self.cursor += 4;
-        f32::from_le_bytes(
-            self.buffer[(self.cursor - 4)..self.cursor]
-                .try_into()
-                .unwrap(),
-        )
+
+        assert!(self.cursor <= self.buffer.len());
+
+        f32::from_le_bytes([
+            self.buffer[self.cursor - 4],
+            self.buffer[self.cursor - 3],
+            self.buffer[self.cursor - 2],
+            self.buffer[self.cursor - 1],
+        ])
     }
 
     fn read_normal(&mut self) {
