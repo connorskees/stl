@@ -6,9 +6,11 @@ use std::{
 };
 
 mod ascii;
+mod bbox;
 mod binary;
 
 pub use ascii::AsciiParser;
+use bbox::BoundingBox;
 pub use binary::BinaryParser;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,8 +49,8 @@ impl<'a> StlFile<'a> {
         IndexBuffer::from_buffer(self.vertices())
     }
 
-    pub fn vertices(&'a self) -> impl Iterator<Item = Vertex> + 'a {
-        self.vertices.chunks_exact(3).map(|chunk| Vertex {
+    pub fn vertices(&'a self) -> impl Iterator<Item = Point> + 'a {
+        self.vertices.chunks_exact(3).map(|chunk| Point {
             x: chunk[0],
             y: chunk[1],
             z: chunk[2],
@@ -74,55 +76,10 @@ impl<'a> StlFile<'a> {
         let mut bb = BoundingBox::init();
 
         for vertex in self.vertices() {
-            bb.min.x = bb.min.x.min(vertex.x);
-            bb.min.y = bb.min.y.min(vertex.y);
-            bb.min.z = bb.min.z.min(vertex.z);
-
-            bb.max.x = bb.max.x.max(vertex.x);
-            bb.max.y = bb.max.y.max(vertex.y);
-            bb.max.z = bb.max.z.max(vertex.z);
+            bb.add_point(vertex);
         }
 
         bb
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BoundingBox {
-    min: Vertex,
-    max: Vertex,
-}
-
-impl BoundingBox {
-    fn init() -> Self {
-        Self {
-            min: Vertex {
-                x: f32::INFINITY,
-                y: f32::INFINITY,
-                z: f32::INFINITY,
-            },
-            max: Vertex {
-                x: f32::NEG_INFINITY,
-                y: f32::NEG_INFINITY,
-                z: f32::NEG_INFINITY,
-            },
-        }
-    }
-
-    pub fn center(&self) -> Vertex {
-        Vertex {
-            x: (self.min.x + self.max.x) / 2.0,
-            y: (self.min.y + self.max.y) / 2.0,
-            z: (self.min.z + self.max.z) / 2.0,
-        }
-    }
-
-    pub fn delta(&self) -> Vertex {
-        Vertex {
-            x: self.max.x - self.min.x,
-            y: self.max.y - self.min.y,
-            z: self.max.z - self.min.z,
-        }
     }
 }
 
@@ -136,19 +93,19 @@ pub struct Normal {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Triangle {
     normal: Normal,
-    v0: Vertex,
-    v1: Vertex,
-    v2: Vertex,
+    v0: Point,
+    v1: Point,
+    v2: Point,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Vertex {
+pub struct Point {
     x: f32,
     y: f32,
     z: f32,
 }
 
-impl Vertex {
+impl Point {
     fn normalize(&self) -> (i64, i64, i64) {
         (
             (self.x * 1024.0 * 1024.0).round() as i64,
@@ -158,33 +115,33 @@ impl Vertex {
     }
 }
 
-impl PartialEq for Vertex {
+impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
         self.normalize() == other.normalize()
     }
 }
 
-impl Hash for Vertex {
+impl Hash for Point {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.normalize().hash(state);
     }
 }
 
-impl Eq for Vertex {}
+impl Eq for Point {}
 
 #[derive(Debug, Clone)]
 pub struct VertexWithNormal {
-    vertex: Vertex,
+    vertex: Point,
     normal: Normal,
 }
 
-struct VertexWithNormalIterator<'a, I: Iterator<Item = Vertex>> {
+struct VertexWithNormalIterator<'a, I: Iterator<Item = Point>> {
     vertices: I,
     normals: &'a [Normal],
     idx: usize,
 }
 
-impl<'a, I: Iterator<Item = Vertex>> Iterator for VertexWithNormalIterator<'a, I> {
+impl<'a, I: Iterator<Item = Point>> Iterator for VertexWithNormalIterator<'a, I> {
     type Item = VertexWithNormal;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -206,7 +163,7 @@ pub struct IndexBuffer {
 }
 
 impl IndexBuffer {
-    pub fn from_buffer(buffer: impl Iterator<Item = Vertex>) -> Self {
+    pub fn from_buffer(buffer: impl Iterator<Item = Point>) -> Self {
         let mut distinct_vertices = HashMap::new();
         let mut vertices = Vec::new();
 
