@@ -27,7 +27,7 @@ impl<'a> StlFile<'a> {
         }
     }
 
-    pub fn buffer(&'a self) -> &'a [f32] {
+    pub fn vertex_buffer(&'a self) -> &'a [f32] {
         &self.vertices
     }
 
