@@ -85,9 +85,9 @@ impl<'a> StlFile<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Normal {
-    i: f32,
-    j: f32,
-    k: f32,
+    pub i: f32,
+    pub j: f32,
+    pub k: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,9 +100,9 @@ pub struct Triangle {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Point {
