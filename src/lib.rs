@@ -45,8 +45,12 @@ impl<'a> StlFile<'a> {
         &self.normals
     }
 
-    pub fn index_buffer(&self) -> IndexBuffer {
-        IndexBuffer::from_buffer(self.vertices())
+    pub fn index_buffer_vertex_only(&self) -> IndexBuffer {
+        IndexBuffer::from_buffer(self.vertex_and_normal_iterator(), push_vertex_only)
+    }
+
+    pub fn index_buffer_vertex_and_normal(&self) -> IndexBuffer {
+        IndexBuffer::from_buffer(self.vertex_and_normal_iterator(), push_vertex_and_normal)
     }
 
     pub fn vertices(&'a self) -> impl Iterator<Item = Point> + 'a {
@@ -81,14 +85,46 @@ impl<'a> StlFile<'a> {
 
         bb
     }
+
+    pub fn vertex_and_normal_iterator(&'a self) -> impl Iterator<Item = VertexWithNormal> + 'a {
+        VertexWithNormalIterator {
+            vertices: self.vertices(),
+            normals: self.normals(),
+            idx: 0,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Normal {
     pub i: f32,
     pub j: f32,
     pub k: f32,
 }
+
+impl Normal {
+    fn normalize(&self) -> (i64, i64, i64) {
+        (
+            (self.i * 1024.0 * 1024.0).round() as i64,
+            (self.j * 1024.0 * 1024.0).round() as i64,
+            (self.k * 1024.0 * 1024.0).round() as i64,
+        )
+    }
+}
+
+impl PartialEq for Normal {
+    fn eq(&self, other: &Self) -> bool {
+        self.normalize() == other.normalize()
+    }
+}
+
+impl Hash for Normal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.normalize().hash(state);
+    }
+}
+
+impl Eq for Normal {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Triangle {
@@ -129,7 +165,7 @@ impl Hash for Point {
 
 impl Eq for Point {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VertexWithNormal {
     vertex: Point,
     normal: Normal,
@@ -162,25 +198,42 @@ pub struct IndexBuffer {
     indices: Vec<u32>,
 }
 
+fn push_vertex_only(v: VertexWithNormal, vertices: &mut Vec<f32>) {
+    vertices.push(v.vertex.x);
+    vertices.push(v.vertex.y);
+    vertices.push(v.vertex.z);
+}
+
+fn push_vertex_and_normal(v: VertexWithNormal, vertices: &mut Vec<f32>) {
+    vertices.push(v.vertex.x);
+    vertices.push(v.vertex.y);
+    vertices.push(v.vertex.z);
+
+    vertices.push(v.normal.i);
+    vertices.push(v.normal.j);
+    vertices.push(v.normal.k);
+}
+
 impl IndexBuffer {
-    pub fn from_buffer(buffer: impl Iterator<Item = Point>) -> Self {
+    fn from_buffer(
+        buffer: impl Iterator<Item = VertexWithNormal>,
+        push: fn(VertexWithNormal, &mut Vec<f32>),
+    ) -> Self {
         let mut distinct_vertices = HashMap::new();
         let mut vertices = Vec::new();
 
         let mut indices = Vec::new();
 
-        for vertex in buffer {
+        for vertex_with_normal in buffer {
             let len = distinct_vertices.len();
 
-            match distinct_vertices.entry(vertex) {
+            match distinct_vertices.entry(vertex_with_normal) {
                 Entry::Occupied(val) => indices.push(*val.get()),
                 Entry::Vacant(ptr) => {
                     ptr.insert(len as u32);
                     indices.push(len as u32);
 
-                    vertices.push(vertex.x);
-                    vertices.push(vertex.y);
-                    vertices.push(vertex.z);
+                    push(vertex_with_normal, &mut vertices);
                 }
             }
         }
