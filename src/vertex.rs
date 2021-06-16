@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    cmp,
+    hash::{Hash, Hasher},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Normal {
@@ -46,6 +49,20 @@ pub struct Point {
     pub z: f32,
 }
 
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        let x = self.x.partial_cmp(&other.x)?;
+        let y = self.y.partial_cmp(&other.y)?;
+        let z = self.z.partial_cmp(&other.z)?;
+
+        if x == y && y == z {
+            Some(x)
+        } else {
+            None
+        }
+    }
+}
+
 impl Point {
     fn normalize(&self) -> (i64, i64, i64) {
         (
@@ -79,7 +96,8 @@ pub struct VertexWithNormal {
 pub(crate) struct VertexWithNormalIterator<'a, I: Iterator<Item = Point>> {
     vertices: I,
     normals: &'a [Normal],
-    idx: usize,
+    vertex_count: usize,
+    normal_count: usize,
 }
 
 impl<'a, I: Iterator<Item = Point>> VertexWithNormalIterator<'a, I> {
@@ -87,7 +105,8 @@ impl<'a, I: Iterator<Item = Point>> VertexWithNormalIterator<'a, I> {
         Self {
             vertices,
             normals,
-            idx: 0,
+            vertex_count: 0,
+            normal_count: 0,
         }
     }
 }
@@ -98,10 +117,14 @@ impl<'a, I: Iterator<Item = Point>> Iterator for VertexWithNormalIterator<'a, I>
     fn next(&mut self) -> Option<Self::Item> {
         let v = VertexWithNormal {
             vertex: self.vertices.next()?,
-            normal: self.normals[self.idx - self.idx % 3],
+            normal: self.normals[self.normal_count],
         };
 
-        self.idx -= 1;
+        if self.vertex_count > 0 && self.vertex_count % 3 == 0 {
+            self.normal_count += 1;
+        }
+
+        self.vertex_count += 1;
 
         Some(v)
     }

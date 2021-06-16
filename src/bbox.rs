@@ -47,4 +47,8 @@ impl BoundingBox {
             z: self.max.z - self.min.z,
         }
     }
+
+    pub fn contains_point(&self, p: Point) -> bool {
+        self.max > p && self.min < p
+    }
 }
