@@ -36,7 +36,7 @@ impl<'a> BinaryParser<'a> {
         Ok(bin_parser)
     }
 
-    pub fn parse(mut self) -> StlFile<'a> {
+    pub fn parse(mut self) -> StlFile {
         for _ in 0..self.num_of_facets {
             self.read_normal();
 
@@ -49,7 +49,6 @@ impl<'a> BinaryParser<'a> {
         }
 
         StlFile {
-            header: self.header,
             normals: self.normals,
             vertices: self.vertices,
         }

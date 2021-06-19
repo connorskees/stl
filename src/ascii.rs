@@ -24,8 +24,8 @@ impl<'a> AsciiParser<'a> {
         Ok(ascii_parser)
     }
 
-    pub fn parse(mut self) -> StlFile<'a> {
-        let name = self.read_string();
+    pub fn parse(mut self) -> StlFile {
+        let _name = self.read_string();
 
         self.skip_whitespace();
 
@@ -34,7 +34,6 @@ impl<'a> AsciiParser<'a> {
         }
 
         StlFile {
-            header: name,
             normals: self.normals,
             vertices: self.vertices,
         }

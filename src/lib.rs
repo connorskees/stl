@@ -8,20 +8,19 @@ mod binary;
 mod vertex;
 
 pub use ascii::AsciiParser;
-use bbox::BoundingBox;
+pub use bbox::BoundingBox;
 pub use binary::BinaryParser;
 use vertex::VertexWithNormalIterator;
 pub use vertex::{Normal, Point, Triangle, VertexWithNormal};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StlFile<'a> {
-    header: &'a [u8],
+pub struct StlFile {
     normals: Vec<Normal>,
     vertices: Vec<f32>,
 }
 
-impl<'a> StlFile<'a> {
-    pub fn parse(buffer: &'a [u8]) -> Result<Self, ()> {
+impl StlFile {
+    pub fn parse(buffer: &[u8]) -> Result<Self, ()> {
         if buffer.starts_with(b"solid") {
             Ok(AsciiParser::new(buffer)?.parse())
         } else {
@@ -29,19 +28,19 @@ impl<'a> StlFile<'a> {
         }
     }
 
-    pub fn parse_ascii(buffer: &'a [u8]) -> Result<Self, ()> {
+    pub fn parse_ascii(buffer: &[u8]) -> Result<Self, ()> {
         Ok(AsciiParser::new(buffer)?.parse())
     }
 
-    pub fn parse_binary(buffer: &'a [u8]) -> Result<Self, ()> {
+    pub fn parse_binary(buffer: &[u8]) -> Result<Self, ()> {
         Ok(BinaryParser::new(buffer)?.parse())
     }
 
-    pub fn vertex_buffer(&'a self) -> &'a [f32] {
+    pub fn vertex_buffer(&self) -> &[f32] {
         &self.vertices
     }
 
-    pub fn normals(&'a self) -> &'a [Normal] {
+    pub fn normals<'a>(&'a self) -> &'a [Normal] {
         &self.normals
     }
 
@@ -53,7 +52,7 @@ impl<'a> StlFile<'a> {
         IndexBuffer::from_buffer(self.vertex_and_normal_iterator(), push_vertex_and_normal)
     }
 
-    pub fn vertices(&'a self) -> impl Iterator<Item = Point> + 'a {
+    pub fn vertices<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
         self.vertices.chunks_exact(3).map(|chunk| Point {
             x: chunk[0],
             y: chunk[1],
@@ -61,7 +60,7 @@ impl<'a> StlFile<'a> {
         })
     }
 
-    pub fn vertices_and_normals(&'a self) -> Vec<f32> {
+    pub fn vertices_and_normals(&self) -> Vec<f32> {
         self.vertices()
             .enumerate()
             .flat_map(|(idx, vertex)| {
@@ -86,7 +85,7 @@ impl<'a> StlFile<'a> {
         bb
     }
 
-    pub fn vertex_and_normal_iterator(&'a self) -> impl Iterator<Item = VertexWithNormal> + 'a {
+    pub fn vertex_and_normal_iterator<'a>(&'a self) -> impl Iterator<Item = VertexWithNormal> + 'a {
         VertexWithNormalIterator::new(self.vertices(), self.normals())
     }
 }
