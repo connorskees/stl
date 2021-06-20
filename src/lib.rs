@@ -1,17 +1,20 @@
 #![warn(missing_debug_implementations)]
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    io::{Result as IoResult, Write},
+};
 
 mod ascii;
 mod bbox;
 mod binary;
 mod vertex;
 
-pub use ascii::AsciiParser;
+use ascii::AsciiParser;
 pub use bbox::BoundingBox;
-pub use binary::BinaryParser;
-use vertex::VertexWithNormalIterator;
+use binary::BinaryParser;
 pub use vertex::{Normal, Point, Triangle, VertexWithNormal};
+use vertex::{TriangleIterator, VertexWithNormalIterator};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StlFile {
@@ -36,8 +39,42 @@ impl StlFile {
         Ok(BinaryParser::new(buffer)?.parse())
     }
 
+    pub fn write_binary(&self, buffer: &mut dyn Write) -> IoResult<()> {
+        buffer.write_all(&[0; 80])?;
+        buffer.write_all(&self.vertex_count().to_le_bytes())?;
+
+        fn write_vec3(x: f32, y: f32, z: f32, buffer: &mut dyn Write) -> IoResult<()> {
+            buffer.write_all(&x.to_le_bytes())?;
+            buffer.write_all(&y.to_le_bytes())?;
+            buffer.write_all(&z.to_le_bytes())?;
+
+            Ok(())
+        }
+
+        for triangle in self.triangles() {
+            write_vec3(
+                triangle.normal.i,
+                triangle.normal.j,
+                triangle.normal.k,
+                buffer,
+            )?;
+            write_vec3(triangle.v0.x, triangle.v0.y, triangle.v0.z, buffer)?;
+            write_vec3(triangle.v1.x, triangle.v1.y, triangle.v1.z, buffer)?;
+            write_vec3(triangle.v2.x, triangle.v2.y, triangle.v2.z, buffer)?;
+
+            buffer.write_all(&[0; 2])?;
+        }
+
+        Ok(())
+    }
+
     pub fn vertex_buffer(&self) -> &[f32] {
         &self.vertices
+    }
+
+    fn vertex_count(&self) -> u32 {
+        debug_assert_eq!(self.vertices.len() % 3, 0);
+        (self.vertices.len() / 3) as u32
     }
 
     pub fn normals<'a>(&'a self) -> &'a [Normal] {
@@ -61,18 +98,15 @@ impl StlFile {
     }
 
     pub fn vertices_and_normals(&self) -> Vec<f32> {
-        self.vertices()
-            .enumerate()
-            .flat_map(|(idx, vertex)| {
-                let normal = self.normals[(idx - idx % 3) / 3];
+        self.vertex_and_normal_iterator()
+            .flat_map(|VertexWithNormal { vertex, normal }| {
                 vec![vertex.x, vertex.y, vertex.z, normal.i, normal.j, normal.k]
             })
             .collect()
     }
 
-    pub fn triangles(&self) -> impl Iterator<Item = Triangle> {
-        // todo
-        Vec::new().into_iter()
+    pub fn triangles<'a>(&'a self) -> impl Iterator<Item = Triangle> + 'a {
+        TriangleIterator::new(self.vertices(), self.normals())
     }
 
     pub fn bounding_box(&self) -> BoundingBox {

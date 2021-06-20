@@ -36,10 +36,10 @@ impl Eq for Normal {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Triangle {
-    normal: Normal,
-    v0: Point,
-    v1: Point,
-    v2: Point,
+    pub normal: Normal,
+    pub v0: Point,
+    pub v1: Point,
+    pub v2: Point,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -133,5 +133,37 @@ impl<'a, I: Iterator<Item = Point>> Iterator for VertexWithNormalIterator<'a, I>
         self.vertex_count += 1;
 
         Some(v)
+    }
+}
+
+pub struct TriangleIterator<'a, I: Iterator<Item = Point>> {
+    vertices: I,
+    normals: &'a [Normal],
+    normal_cursor: usize,
+}
+
+impl<'a, I: Iterator<Item = Point>> TriangleIterator<'a, I> {
+    pub fn new(vertices: I, normals: &'a [Normal]) -> Self {
+        Self {
+            vertices,
+            normals,
+            normal_cursor: 0,
+        }
+    }
+}
+
+impl<'a, I: Iterator<Item = Point>> Iterator for TriangleIterator<'a, I> {
+    type Item = Triangle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let v0 = self.vertices.next()?;
+        let v1 = self.vertices.next()?;
+        let v2 = self.vertices.next()?;
+
+        let normal = self.normals[self.normal_cursor];
+
+        self.normal_cursor += 1;
+
+        Some(Triangle { normal, v0, v1, v2 })
     }
 }
