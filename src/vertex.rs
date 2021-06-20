@@ -105,7 +105,7 @@ impl<'a, I: Iterator<Item = Point>> VertexWithNormalIterator<'a, I> {
         Self {
             vertices,
             normals,
-            vertex_count: 0,
+            vertex_count: 1,
             normal_count: 0,
         }
     }
@@ -116,11 +116,17 @@ impl<'a, I: Iterator<Item = Point>> Iterator for VertexWithNormalIterator<'a, I>
 
     fn next(&mut self) -> Option<Self::Item> {
         let v = VertexWithNormal {
-            vertex: self.vertices.next()?,
+            vertex: match self.vertices.next() {
+                Some(v) => v,
+                None => {
+                    debug_assert_eq!(self.normals.len(), self.normal_count);
+                    return None;
+                }
+            },
             normal: self.normals[self.normal_count],
         };
 
-        if self.vertex_count > 0 && self.vertex_count % 3 == 0 {
+        if self.vertex_count % 3 == 0 {
             self.normal_count += 1;
         }
 
