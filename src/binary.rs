@@ -62,7 +62,7 @@ impl<'a> BinaryParser<'a> {
     fn read_u32_le(&mut self) -> u32 {
         self.cursor += 4;
 
-        assert!(self.cursor <= self.buffer.len());
+        debug_assert!(self.cursor <= self.buffer.len());
 
         u32::from_le_bytes([
             self.buffer[self.cursor - 4],
@@ -75,7 +75,7 @@ impl<'a> BinaryParser<'a> {
     fn read_f32_le(&mut self) -> f32 {
         self.cursor += 4;
 
-        assert!(self.cursor <= self.buffer.len());
+        debug_assert!(self.cursor <= self.buffer.len());
 
         f32::from_le_bytes([
             self.buffer[self.cursor - 4],

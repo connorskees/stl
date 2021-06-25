@@ -34,7 +34,7 @@ impl Hash for Normal {
 
 impl Eq for Normal {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Triangle {
     pub normal: Normal,
     pub v0: Point,

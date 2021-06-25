@@ -2,17 +2,23 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
-    io::{Result as IoResult, Write},
+    fs,
+    io::{self, Result as IoResult, Write},
+    path::Path,
 };
 
 mod ascii;
 mod bbox;
 mod binary;
+mod error;
+mod union_find;
 mod vertex;
 
 use ascii::AsciiParser;
 pub use bbox::BoundingBox;
 use binary::BinaryParser;
+pub use error::{StlError, StlResult};
+use union_find::UnionFind;
 pub use vertex::{Normal, Point, Triangle, VertexWithNormal};
 use vertex::{TriangleIterator, VertexWithNormalIterator};
 
@@ -23,7 +29,47 @@ pub struct StlFile {
 }
 
 impl StlFile {
-    pub fn parse(buffer: &[u8]) -> Result<Self, ()> {
+    pub fn from_path(path: impl AsRef<Path>) -> StlResult<Self> {
+        let buffer = fs::read(path)?;
+
+        Self::parse(&buffer)
+    }
+
+    pub(crate) fn new() -> Self {
+        Self {
+            normals: Vec::new(),
+            vertices: Vec::new(),
+        }
+    }
+
+    pub(crate) fn add_triangle(&mut self, v: Triangle) {
+        self.normals.push(v.normal);
+
+        self.vertices.push(v.v0.x);
+        self.vertices.push(v.v0.y);
+        self.vertices.push(v.v0.z);
+
+        self.vertices.push(v.v1.x);
+        self.vertices.push(v.v1.y);
+        self.vertices.push(v.v1.z);
+
+        self.vertices.push(v.v2.x);
+        self.vertices.push(v.v2.y);
+        self.vertices.push(v.v2.z);
+    }
+
+    pub fn parse(buffer: &[u8]) -> StlResult<Self> {
+        let mut start = 0;
+        while let Some(&b) = buffer.get(start) {
+            if b.is_ascii_whitespace() {
+                start += 1;
+            } else {
+                break;
+            }
+        }
+
+        let buffer = &buffer[start..];
+
         if buffer.starts_with(b"solid") {
             Ok(AsciiParser::new(buffer)?.parse())
         } else {
@@ -31,19 +77,19 @@ impl StlFile {
         }
     }
 
-    pub fn parse_ascii(buffer: &[u8]) -> Result<Self, ()> {
+    pub fn parse_ascii(buffer: &[u8]) -> StlResult<Self> {
         Ok(AsciiParser::new(buffer)?.parse())
     }
 
-    pub fn parse_binary(buffer: &[u8]) -> Result<Self, ()> {
+    pub fn parse_binary(buffer: &[u8]) -> StlResult<Self> {
         Ok(BinaryParser::new(buffer)?.parse())
     }
 
-    pub fn write_binary(&self, buffer: &mut dyn Write) -> IoResult<()> {
+    pub fn write_binary(&self, buffer: &mut dyn Write) -> StlResult<()> {
         buffer.write_all(&[0; 80])?;
-        buffer.write_all(&self.vertex_count().to_le_bytes())?;
+        buffer.write_all(&self.facet_count().to_le_bytes())?;
 
-        fn write_vec3(x: f32, y: f32, z: f32, buffer: &mut dyn Write) -> IoResult<()> {
+        fn write_vec3(x: f32, y: f32, z: f32, buffer: &mut dyn Write) -> StlResult<()> {
             buffer.write_all(&x.to_le_bytes())?;
             buffer.write_all(&y.to_le_bytes())?;
             buffer.write_all(&z.to_le_bytes())?;
@@ -72,9 +118,18 @@ impl StlFile {
         &self.vertices
     }
 
-    fn vertex_count(&self) -> u32 {
+    pub fn vertex_count(&self) -> u32 {
         debug_assert_eq!(self.vertices.len() % 3, 0);
+        debug_assert_eq!(self.vertices.len() / 9, self.normals.len());
+
         (self.vertices.len() / 3) as u32
+    }
+
+    pub fn facet_count(&self) -> u32 {
+        debug_assert_eq!(self.vertices.len() % 3, 0);
+        debug_assert_eq!(self.vertices.len() / 9, self.normals.len());
+
+        self.normals.len() as u32
     }
 
     pub fn normals<'a>(&'a self) -> &'a [Normal] {
@@ -121,6 +176,16 @@ impl StlFile {
 
     pub fn vertex_and_normal_iterator<'a>(&'a self) -> impl Iterator<Item = VertexWithNormal> + 'a {
         VertexWithNormalIterator::new(self.vertices(), self.normals())
+    }
+
+    pub fn split_islands(self) -> Vec<Self> {
+        let mut union_find = UnionFind::new(self.vertex_count() as usize);
+
+        for triangle in self.triangles() {
+            union_find.add_triangle(triangle);
+        }
+
+        union_find.files()
     }
 }
 
