@@ -7,7 +7,8 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
-    pub(crate) fn init() -> Self {
+    /// Returns a bounding box containing no points
+    pub fn new() -> Self {
         Self {
             min: Point {
                 x: f32::INFINITY,
@@ -22,7 +23,8 @@ impl BoundingBox {
         }
     }
 
-    pub(crate) fn add_point(&mut self, vertex: Point) {
+    /// Expands the bounding box if it does not currently contain a given point
+    pub fn add_point(&mut self, vertex: Point) {
         self.min.x = self.min.x.min(vertex.x);
         self.min.y = self.min.y.min(vertex.y);
         self.min.z = self.min.z.min(vertex.z);

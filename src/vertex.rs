@@ -3,6 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+/// A 3d vector perpendicular to a facet
 #[derive(Debug, Clone, Copy)]
 pub struct Normal {
     pub i: f32,
@@ -87,6 +88,7 @@ impl Hash for Point {
 
 impl Eq for Point {}
 
+/// A vertex alongside the normal of the facet to which it belongs
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VertexWithNormal {
     pub vertex: Point,

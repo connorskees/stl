@@ -22,6 +22,7 @@ use union_find::UnionFind;
 pub use vertex::{Normal, Point, Triangle, VertexWithNormal};
 use vertex::{TriangleIterator, VertexWithNormalIterator};
 
+/// A parsed STL file
 #[derive(Debug, Clone, PartialEq)]
 pub struct StlFile {
     normals: Vec<Normal>,
@@ -29,6 +30,12 @@ pub struct StlFile {
 }
 
 impl StlFile {
+    /// Parse an STL from a file path
+    ///
+    /// ```no_run
+    /// # use stl::StlFile;
+    /// let stl = StlFile::from_path("./foo.stl").unwrap();
+    /// ```
     pub fn from_path(path: impl AsRef<Path>) -> StlResult<Self> {
         let buffer = fs::read(path)?;
 
@@ -58,6 +65,12 @@ impl StlFile {
         self.vertices.push(v.v2.z);
     }
 
+    /// Parse an STL file from an existing buffer in memory
+    ///
+    /// ```
+    /// # use stl::StlFile;
+    /// let stl = StlFile::parse(b"solid foo\nendsolid\n").unwrap();
+    /// ```
     pub fn parse(buffer: &[u8]) -> StlResult<Self> {
         let mut start = 0;
         while let Some(&b) = buffer.get(start) {
@@ -77,14 +90,24 @@ impl StlFile {
         }
     }
 
+    /// Parse a buffer known to be in ASCII format
     pub fn parse_ascii(buffer: &[u8]) -> StlResult<Self> {
         Ok(AsciiParser::new(buffer)?.parse())
     }
 
+    /// Parse a buffer known to be in binary format
     pub fn parse_binary(buffer: &[u8]) -> StlResult<Self> {
         Ok(BinaryParser::new(buffer)?.parse())
     }
 
+    /// Write this file in binary STL format
+    ///
+    /// ```no_run
+    /// # use stl::StlFile;
+    /// let stl = StlFile::from_path("./foo.stl").unwrap();
+    /// let mut file = std::fs::File::open("./bar.stl").unwrap();
+    /// stl.write_binary(&mut file).unwrap();
+    /// ```
     pub fn write_binary(&self, buffer: &mut dyn Write) -> StlResult<()> {
         buffer.write_all(&[0; 80])?;
         buffer.write_all(&self.facet_count().to_le_bytes())?;
@@ -114,10 +137,12 @@ impl StlFile {
         Ok(())
     }
 
+    /// Contiguous slice of memory containing all vertices
     pub fn vertex_buffer(&self) -> &[f32] {
         &self.vertices
     }
 
+    /// Number of vertices
     pub fn vertex_count(&self) -> u32 {
         debug_assert_eq!(self.vertices.len() % 3, 0);
         debug_assert_eq!(self.vertices.len() / 9, self.normals.len());
@@ -125,6 +150,7 @@ impl StlFile {
         (self.vertices.len() / 3) as u32
     }
 
+    /// Number of facets
     pub fn facet_count(&self) -> u32 {
         debug_assert_eq!(self.vertices.len() % 3, 0);
         debug_assert_eq!(self.vertices.len() / 9, self.normals.len());
@@ -152,10 +178,11 @@ impl StlFile {
         })
     }
 
+    /// A contiguous slice of memory with vertices followed by their facet normals
     pub fn vertices_and_normals(&self) -> Vec<f32> {
         self.vertex_and_normal_iterator()
             .flat_map(|VertexWithNormal { vertex, normal }| {
-                vec![vertex.x, vertex.y, vertex.z, normal.i, normal.j, normal.k]
+                [vertex.x, vertex.y, vertex.z, normal.i, normal.j, normal.k]
             })
             .collect()
     }
@@ -164,8 +191,9 @@ impl StlFile {
         TriangleIterator::new(self.vertices(), self.normals())
     }
 
+    /// A bounding box containing all points in this STL
     pub fn bounding_box(&self) -> BoundingBox {
-        let mut bb = BoundingBox::init();
+        let mut bb = BoundingBox::new();
 
         for vertex in self.vertices() {
             bb.add_point(vertex);
@@ -189,6 +217,7 @@ impl StlFile {
     }
 }
 
+/// Compressed representation of vertices that stores each vertex only once
 #[derive(Debug, Clone)]
 pub struct IndexBuffer {
     vertices: Vec<f32>,
