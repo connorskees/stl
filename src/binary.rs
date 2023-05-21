@@ -62,27 +62,34 @@ impl<'a> BinaryParser<'a> {
     fn read_u32_le(&mut self) -> u32 {
         self.cursor += 4;
 
-        debug_assert!(self.cursor <= self.buffer.len());
+        assert!(self.cursor <= self.buffer.len());
 
-        u32::from_le_bytes([
-            self.buffer[self.cursor - 4],
-            self.buffer[self.cursor - 3],
-            self.buffer[self.cursor - 2],
-            self.buffer[self.cursor - 1],
-        ])
+        unsafe {
+            u32::from_le_bytes([
+                *self.buffer.get_unchecked(self.cursor - 4),
+                *self.buffer.get_unchecked(self.cursor - 3),
+                *self.buffer.get_unchecked(self.cursor - 2),
+                *self.buffer.get_unchecked(self.cursor - 1),
+            ])
+        }
     }
 
     fn read_f32_le(&mut self) -> f32 {
         self.cursor += 4;
 
-        debug_assert!(self.cursor <= self.buffer.len());
+        assert!(self.cursor <= self.buffer.len());
 
-        f32::from_le_bytes([
-            self.buffer[self.cursor - 4],
-            self.buffer[self.cursor - 3],
-            self.buffer[self.cursor - 2],
-            self.buffer[self.cursor - 1],
-        ])
+        // SAFETY: we assert above that these indices are valid
+        //
+        // for some reason, the bounds checks are not optimized away
+        unsafe {
+            f32::from_le_bytes([
+                *self.buffer.get_unchecked(self.cursor - 4),
+                *self.buffer.get_unchecked(self.cursor - 3),
+                *self.buffer.get_unchecked(self.cursor - 2),
+                *self.buffer.get_unchecked(self.cursor - 1),
+            ])
+        }
     }
 
     fn read_normal(&mut self) {

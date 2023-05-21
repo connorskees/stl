@@ -11,6 +11,7 @@ mod ascii;
 mod bbox;
 mod binary;
 mod error;
+mod octree;
 mod union_find;
 mod vertex;
 
@@ -18,14 +19,15 @@ use ascii::AsciiParser;
 pub use bbox::BoundingBox;
 use binary::BinaryParser;
 pub use error::{StlError, StlResult};
+pub use octree::Octree;
 use union_find::UnionFind;
 pub use vertex::{Normal, Point, Triangle, VertexWithNormal};
 use vertex::{TriangleIterator, VertexWithNormalIterator};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StlFile {
-    normals: Vec<Normal>,
-    vertices: Vec<f32>,
+    pub normals: Vec<Normal>,
+    pub vertices: Vec<f32>,
 }
 
 impl StlFile {
@@ -56,6 +58,26 @@ impl StlFile {
         self.vertices.push(v.v2.x);
         self.vertices.push(v.v2.y);
         self.vertices.push(v.v2.z);
+    }
+
+    pub fn join(&mut self, other: &Self) {
+        self.normals.extend_from_slice(&other.normals);
+        self.vertices.extend_from_slice(&other.vertices);
+    }
+
+    pub fn longest_edge(&self) -> f32 {
+        let mut longest_edge = f32::NEG_INFINITY;
+
+        // todo: use `triangle.edges()` and find len of line segment here
+        for triangle in self.triangles() {
+            let edge1 = triangle.v0.distance(&triangle.v1);
+            let edge2 = triangle.v1.distance(&triangle.v2);
+            let edge3 = triangle.v2.distance(&triangle.v0);
+
+            longest_edge = longest_edge.max(edge1.max(edge2).max(edge3));
+        }
+
+        longest_edge
     }
 
     pub fn parse(buffer: &[u8]) -> StlResult<Self> {
@@ -144,7 +166,7 @@ impl StlFile {
         IndexBuffer::from_buffer(self.vertex_and_normal_iterator(), push_vertex_and_normal)
     }
 
-    pub fn vertices<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
+    pub fn vertices(&self) -> impl Iterator<Item = Point> + '_ {
         self.vertices.chunks_exact(3).map(|chunk| Point {
             x: chunk[0],
             y: chunk[1],
@@ -160,7 +182,7 @@ impl StlFile {
             .collect()
     }
 
-    pub fn triangles<'a>(&'a self) -> impl Iterator<Item = Triangle> + 'a {
+    pub fn triangles(&self) -> impl Iterator<Item = Triangle> + '_ {
         TriangleIterator::new(self.vertices(), self.normals())
     }
 
@@ -174,7 +196,7 @@ impl StlFile {
         bb
     }
 
-    pub fn vertex_and_normal_iterator<'a>(&'a self) -> impl Iterator<Item = VertexWithNormal> + 'a {
+    pub fn vertex_and_normal_iterator(&self) -> impl Iterator<Item = VertexWithNormal> + '_ {
         VertexWithNormalIterator::new(self.vertices(), self.normals())
     }
 
@@ -245,4 +267,11 @@ impl IndexBuffer {
     pub fn indices(&self) -> &[u32] {
         &self.indices
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DoublePoint {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
